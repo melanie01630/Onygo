@@ -278,7 +278,7 @@ function vHome(results) {
   <h2>Destinations populaires</h2>
   <div class="grid">${POP.map(([c, p, e, col, w]) => `<button class="dest" data-q="${esc(c + ', ' + p)}" data-img="${esc(w)}" style="background:${col}">${e ? `<i>${e}</i>` : ''}<span>${esc(c)}</span><small>${esc(p)}</small></button>`).join('')}</div>
   <div class="info" style="margin-top:16px">✈️ <b>Comment ça marche ?</b><br>1. Choisis une destination · 2. Choisis ton hôtel · 3. Découvre les activités, les restos et les transports autour de lui · 4. Garde tes coups de cœur dans <b>Mon voyage</b>.</div>
-  <footer>Données © contributeurs OpenStreetMap. Photos : Wikipédia / Wikimedia Commons. Vérifie toujours les horaires et les prix sur le site officiel.</footer>`;
+  <footer>Données © contributeurs OpenStreetMap. Photos : Wikipédia / Wikimedia Commons (fond : <a href="https://commons.wikimedia.org/wiki/File:Whitehaven_Beach,_Whitsunday_Island,_Queensland.jpg" target="_blank" rel="noopener" style="color:inherit">Whitehaven Beach</a>). Vérifie toujours les horaires et les prix sur le site officiel.</footer>`;
   loadPhotos();
   $('#sform').onsubmit = e => { e.preventDefault(); const q = $('#sq').value.trim(); if (q.length > 1) search(q); };
   $$('[data-q]').forEach(b => b.onclick = () => search(b.dataset.q, true));
