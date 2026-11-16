@@ -29,7 +29,7 @@ const S = {
   hotels: null, hotelsErr: null, cities: null,
   hotel: store.get('hotel', null),
   hq: '', htype: 'all', hsort: 'stars', hshow: 30, hmode: 'list',
-  radius: store.get('radius', 5), acts: null, actsErr: null, acat: 'all', aq: '', ashow: 30, amode: 'list',
+  radius: Math.min(store.get('radius', 3), 20), acts: null, actsErr: null, acat: 'all', aq: '', ashow: 30, amode: 'list',
   rradius: store.get('rradius', 1), restos: null, restosErr: null, rcui: 'all', rtype: 'all', rq: '', rshow: 30, rmode: 'list',
   transit: null, transitErr: null,
   trip: store.get('trip', { items: [], days: 3 })
@@ -38,22 +38,36 @@ function saveTrip() { store.set('trip', S.trip); updateBadge(); }
 function updateBadge() { $('#tripN').textContent = S.trip.items.length || ''; }
 
 /* ---------- accès aux données (OpenStreetMap) ---------- */
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 const memo = {};
+/* Un serveur répond avec un message d'erreur (temps dépassé, trop de monde) : on essaie le suivant. */
+async function askServer(url, q, ms) {
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (j.remark && /error|timed out|out of memory/i.test(j.remark)) throw new Error(j.remark);
+    return j.elements || [];
+  } finally { clearTimeout(tm); }
+}
+/* On interroge le premier serveur ; s'il traîne, on en lance un 2e en parallèle et on garde la 1re réponse. */
 async function overpass(q) {
   if (memo[q]) return memo[q];
-  let last;
-  for (const url of OVERPASS) {
-    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 45000);
-    try {
-      const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctl.signal });
-      clearTimeout(tm);
-      if (!r.ok) { last = new Error('HTTP ' + r.status); continue; }
-      const j = await r.json();
-      return (memo[q] = j.elements || []);
-    } catch (e) { clearTimeout(tm); last = e; }
+  if (!memo['p' + q]) {
+    memo['p' + q] = new Promise((resolve, reject) => {
+      let i = 0, pending = 0, done = false, last, timer;
+      const launch = () => {
+        if (done || i >= OVERPASS.length) return;
+        const url = OVERPASS[i++]; pending++;
+        clearTimeout(timer); timer = setTimeout(launch, 7000);
+        askServer(url, q, 35000).then(els => { if (done) return; done = true; clearTimeout(timer); resolve(memo[q] = els); })
+          .catch(e => { last = e; pending--; if (done) return; if (i < OVERPASS.length) launch(); else if (!pending) { done = true; clearTimeout(timer); reject(last); } });
+      };
+      launch();
+    }).finally(() => { delete memo['p' + q]; });
   }
-  throw last || new Error('overpass');
+  return memo['p' + q];
 }
 async function geocode(q) {
   const u = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=fr&q=' + encodeURIComponent(q);
@@ -247,6 +261,13 @@ function showResults(r) {
   }).join('');
   $$('[data-r]', box).forEach(c => c.onclick = () => pickDest(r[+c.dataset.r]));
 }
+/* Nouvelle destination : l'ancien hôtel ne compte plus (sinon restos et activités restent autour de l'ancien). */
+function dropHotelIfFar() {
+  if (S.hotel && (!S.dest || km(S.dest, S.hotel) > 40)) {
+    S.hotel = null; store.set('hotel', null);
+    S.acts = S.restos = S.transit = null; S.actsErr = S.restosErr = S.transitErr = null;
+  }
+}
 function pickDest(x) {
   const bb = (x.boundingbox || []).map(Number);
   const a = x.address || {};
@@ -254,7 +275,7 @@ function pickDest(x) {
     name: x.name || x.display_name.split(',')[0], country: a.country || '', lat: +x.lat, lon: +x.lon,
     bbox: bb.length === 4 ? bb : null, kind: x.addresstype || x.type || ''
   };
-  store.set('dest', S.dest);
+  store.set('dest', S.dest); dropHotelIfFar();
   S.hotels = null; S.cities = null; S.hq = ''; S.htype = 'all'; S.hshow = 30;
   if (location.hash !== '#explorer') location.hash = 'explorer'; else render();
 }
@@ -315,7 +336,7 @@ function hotelCard(h) {
 }
 async function loadHotels() {
   const d = S.dest, box = hotelBox(d);
-  const q = `[out:json][timeout:40];(nwr["tourism"~"^(hotel|hostel|guest_house|motel|apartment|chalet|camp_site)$"]["name"]${box};nwr["leisure"="resort"]["name"]${box};);out tags center 1500;`;
+  const q = `[out:json][timeout:30];(nwr["tourism"~"^(hotel|hostel|guest_house|motel|apartment|chalet|camp_site)$"]["name"]${box};nwr["leisure"="resort"]["name"]${box};);out tags center 1500;`;
   try {
     const els = await overpass(q);
     if (S.dest !== d) return;
@@ -333,7 +354,7 @@ async function vCities(top) {
     app.innerHTML = top + loader('Je cherche les villes à visiter…'); $('#chg').onclick = resetDest;
     const bb = d.bbox ? `(${d.bbox[0]},${d.bbox[2]},${d.bbox[1]},${d.bbox[3]})` : around(150000, d);
     try {
-      const els = await overpass(`[out:json][timeout:40];(node["place"="city"]${bb};node["place"="town"]["population"]${bb};);out tags 300;`);
+      const els = await overpass(`[out:json][timeout:30];(node["place"="city"]${bb};node["place"="town"]["population"]${bb};);out tags 300;`);
       S.cities = els.map(norm).filter(c => c.name).map(c => Object.assign(c, { pop: parseInt(String(c.t.population || '0').replace(/\D/g, ''), 10) || 0, cap: c.t.capital === 'yes' || c.t.capital === '2' }))
         .sort((a, b) => b.cap - a.cap || b.pop - a.pop).slice(0, 40);
     } catch (e) { S.cities = []; S.citiesErr = 1; }
@@ -347,7 +368,7 @@ async function vCities(top) {
   $$('[data-c]').forEach(b => b.onclick = () => {
     const c = S.cities[+b.dataset.c];
     S.dest = { name: c.name, country: d.country || d.name, lat: c.lat, lon: c.lon, bbox: null, kind: 'city' };
-    store.set('dest', S.dest); S.hotels = null; S.cities = null; vHotels();
+    store.set('dest', S.dest); dropHotelIfFar(); S.hotels = null; S.cities = null; header(); vHotels();
   });
 }
 
@@ -380,7 +401,7 @@ function hotelSheet(id) {
 }
 
 /* ================= ACTIVITÉS autour de l'hôtel ================= */
-const RADII = [1, 3, 5, 10, 25];
+const RADII = [1, 3, 5, 10, 20];
 function vAutour() {
   if (!S.hotel) { app.innerHTML = needHotel('les activités'); return bindGoto(); }
   const head = hotelBar() + `<h2 style="margin-top:4px">Que faire autour ?</h2>
@@ -417,14 +438,19 @@ function actCard(a) {
 }
 async function loadActs() {
   const h = S.hotel, R = S.radius * 1000, A = around(R, h);
-  const q = `[out:json][timeout:50];(
+  const big = S.radius > 5;
+  const q = `[out:json][timeout:30];(
 nwr["tourism"~"^(attraction|museum|gallery|viewpoint|zoo|theme_park|aquarium)$"]["name"]${A};
-nwr["historic"~"^(monument|castle|memorial|ruins|archaeological_site|fort|city_gate|palace|manor|tower|citywalls)$"]["name"]${A};
-nwr["leisure"~"^(park|garden|nature_reserve|water_park|beach_resort)$"]["name"]${A};
-nwr["natural"~"^(beach|peak|waterfall)$"]["name"]${A};
-nwr["amenity"~"^(theatre|arts_centre|cinema)$"]["name"]${A};
+nwr["historic"~"^(monument|castle|ruins|archaeological_site|fort|city_gate|palace|manor|tower|citywalls)$"]["name"]${A};
+nwr["historic"="memorial"]["name"]["wikidata"]${A};
+nwr["leisure"~"^(water_park|beach_resort)$"]["name"]${A};
+nwr["leisure"~"^(park|garden|nature_reserve)$"]["name"]${big ? '["wikidata"]' : ''}${A};
+nwr["natural"~"^(beach|waterfall)$"]["name"]${A};
+node["natural"="peak"]["name"]${big ? '["wikidata"]' : ''}${A};
+nwr["amenity"~"^(theatre|arts_centre)$"]["name"]${A};
+nwr["amenity"="cinema"]["name"]${A};
 nwr["amenity"="place_of_worship"]["name"]["wikidata"]${A};
-);out tags center 1200;`;
+);out tags center qt 900;`;
   try {
     const els = await overpass(q);
     if (S.hotel !== h || S.radius * 1000 !== R) return;
@@ -534,7 +560,7 @@ function restoCard(r) {
 }
 async function loadRestos() {
   const h = S.hotel, R = S.rradius * 1000;
-  const q = `[out:json][timeout:45];nwr["amenity"~"^(restaurant|cafe|fast_food|bar|pub|ice_cream|biergarten|food_court)$"]["name"]${around(R, h)};out tags center 1500;`;
+  const q = `[out:json][timeout:30];nwr["amenity"~"^(restaurant|cafe|fast_food|bar|pub|ice_cream|biergarten|food_court)$"]["name"]${around(R, h)};out tags center qt 1200;`;
   try {
     const els = await overpass(q);
     if (S.hotel !== h || S.rradius * 1000 !== R) return;
@@ -646,6 +672,7 @@ function vVoyage() {
 }
 
 /* ---------- démarrage ---------- */
+dropHotelIfFar();
 render();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

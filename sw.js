@@ -1,6 +1,6 @@
 /* Onygo : la page marche même avec un réseau faible. Les données des lieux viennent toujours d'Internet. */
-const CACHE = 'onygo-v1';
-const FILES = ['./', './index.html', './style.css?v=1', './app.js?v=1', './icon.svg', './manifest.webmanifest'];
+const CACHE = 'onygo-v2';
+const FILES = ['./', './index.html', './style.css?v=2', './app.js?v=2', './icon.svg', './manifest.webmanifest'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
