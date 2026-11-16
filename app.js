@@ -78,17 +78,15 @@ async function getJSON(path) {
   return null;
 }
 let packIdx = null; const packMemo = {};
-function packIndex() { return packIdx || (packIdx = getJSON('data/index.json').then(x => Array.isArray(x) ? x : [])); }
+function packIndex() { return packIdx || (packIdx = getJSON('data/cities.json').then(x => Array.isArray(x) ? x : [])); }
 /* Renvoie les lieux prêts à l'avance si la ville couvre le rayon demandé, sinon null (=> recherche en direct). */
 async function pack(kind, p, need, cover) {
   const idx = await packIndex();
   const c = idx.find(e => km(e, p) + need <= e[cover || kind]);
   if (!c) return null;
   const k = c.s + '-' + kind;
-  if (!packMemo[k]) packMemo[k] = getJSON('data/' + k + '.json');
-  const els = await packMemo[k];
-  if (!els) { delete packMemo[k]; return null; }
-  return els;
+  if (!(k in packMemo)) packMemo[k] = getJSON('data/' + k + '.json');
+  return (await packMemo[k]) || null;
 }
 async function geocode(q) {
   const u = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=fr&q=' + encodeURIComponent(q);
