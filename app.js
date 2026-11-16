@@ -69,6 +69,27 @@ async function overpass(q) {
   }
   return memo['p' + q];
 }
+/* ---------- données prêtes à l'avance (villes populaires, mises à jour chaque lundi) ---------- */
+const CDN = 'https://cdn.jsdelivr.net/gh/melanie01630/onygo@main/';
+async function getJSON(path) {
+  for (const base of ['', CDN]) {
+    try { const r = await fetch(base + path); if (r.ok) return await r.json(); } catch (e) {}
+  }
+  return null;
+}
+let packIdx = null; const packMemo = {};
+function packIndex() { return packIdx || (packIdx = getJSON('data/index.json').then(x => Array.isArray(x) ? x : [])); }
+/* Renvoie les lieux prêts à l'avance si la ville couvre le rayon demandé, sinon null (=> recherche en direct). */
+async function pack(kind, p, need, cover) {
+  const idx = await packIndex();
+  const c = idx.find(e => km(e, p) + need <= e[cover || kind]);
+  if (!c) return null;
+  const k = c.s + '-' + kind;
+  if (!packMemo[k]) packMemo[k] = getJSON('data/' + k + '.json');
+  const els = await packMemo[k];
+  if (!els) { delete packMemo[k]; return null; }
+  return els;
+}
 async function geocode(q) {
   const u = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=fr&q=' + encodeURIComponent(q);
   const r = await fetch(u, { headers: { 'Accept-Language': 'fr' } });
@@ -286,7 +307,7 @@ function destTooBig(d) {
 }
 function hotelBox(d) {
   if (d.bbox) {
-    let [s, n, w, e] = d.bbox; const mlat = .14, mlon = .2;
+    let [s, n, w, e] = d.bbox; const mlat = .09, mlon = .12;
     s = Math.max(s, d.lat - mlat); n = Math.min(n, d.lat + mlat); w = Math.max(w, d.lon - mlon); e = Math.min(e, d.lon + mlon);
     if (n - s < .03) { s = d.lat - .03; n = d.lat + .03; } if (e - w < .04) { w = d.lon - .04; e = d.lon + .04; }
     return `(${s},${w},${n},${e})`;
@@ -338,7 +359,7 @@ async function loadHotels() {
   const d = S.dest, box = hotelBox(d);
   const q = `[out:json][timeout:30];(nwr["tourism"~"^(hotel|hostel|guest_house|motel|apartment|chalet|camp_site)$"]["name"]${box};nwr["leisure"="resort"]["name"]${box};);out tags center 1500;`;
   try {
-    const els = await overpass(q);
+    const els = (await pack('h', d, 4)) || await overpass(q);
     if (S.dest !== d) return;
     const seen = new Set();
     S.hotels = els.map(norm).filter(h => h.name && h.lat != null && !seen.has(h.name + h.lat.toFixed(3)) && seen.add(h.name + h.lat.toFixed(3)))
@@ -452,7 +473,11 @@ nwr["amenity"="cinema"]["name"]${A};
 nwr["amenity"="place_of_worship"]["name"]["wikidata"]${A};
 );out tags center qt 900;`;
   try {
-    const els = await overpass(q);
+    let els = await pack('a', h, S.radius, big ? 'a' : 'ap');
+    if (els) {
+      els = els.filter(e => km(h, e) <= S.radius);
+      if (big) els = els.filter(e => { const t = e.tags; return !((/^(park|garden|nature_reserve)$/.test(t.leisure || '') || t.natural === 'peak') && !t.wikidata); });
+    } else els = await overpass(q);
     if (S.hotel !== h || S.radius * 1000 !== R) return;
     const seen = new Set();
     S.acts = els.map(norm).filter(a => a.name && a.lat != null).filter(a => { const k = a.name + '|' + a.lat.toFixed(3); if (seen.has(k)) return false; seen.add(k); return true; })
@@ -562,7 +587,8 @@ async function loadRestos() {
   const h = S.hotel, R = S.rradius * 1000;
   const q = `[out:json][timeout:30];nwr["amenity"~"^(restaurant|cafe|fast_food|bar|pub|ice_cream|biergarten|food_court)$"]["name"]${around(R, h)};out tags center qt 1200;`;
   try {
-    const els = await overpass(q);
+    let els = await pack('r', h, S.rradius);
+    els = els ? els.filter(e => km(h, e) <= S.rradius) : await overpass(q);
     if (S.hotel !== h || S.rradius * 1000 !== R) return;
     S.restos = els.map(norm).filter(r => r.name && r.lat != null).map(r => { r.type = RTYPES[r.t.amenity] ? r.t.amenity : 'restaurant'; r.e = RTYPES[r.type][1]; r.cu = cuisines(r.t); r.d = km(h, r); return r; })
       .sort((a, b) => (a.type === 'restaurant' ? 0 : 1) - (b.type === 'restaurant' ? 0 : 1) || a.d - b.d);
