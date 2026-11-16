@@ -240,8 +240,8 @@ function bindFav(list, kind) {
 
 /* ================= EXPLORER : destination + hôtels ================= */
 const POP = [
-  ['Paris', 'France', '🗼', '#0B7A75', 'Eiffel_Tower'], ['Rome', 'Italie', '🏛️', '#E07A3F', 'Colosseum'], ['Barcelone', 'Espagne', '🌞', '#E9A300', 'Sagrada_Família'], ['Lisbonne', 'Portugal', '🚋', '#C9504A', 'Belém_Tower'],
-  ['Marrakech', 'Maroc', '🕌', '#B65A2E', 'Koutoubia_Mosque'], ['Londres', 'Royaume-Uni', '🎡', '#335C81', 'Big_Ben'], ['Amsterdam', 'Pays-Bas', '🚲', '#D9622B', 'Rijksmuseum'], ['Istanbul', 'Turquie', '🧿', '#2E6FA8', 'Hagia_Sophia'],
+  ['Paris', 'France', '', '#0B7A75', 'Eiffel_Tower'], ['Rome', 'Italie', '🏛️', '#E07A3F', 'Colosseum'], ['Barcelone', 'Espagne', '🌞', '#E9A300', 'Sagrada_Família'], ['Lisbonne', 'Portugal', '🚋', '#C9504A', 'Belém_Tower'],
+  ['Marrakech', 'Maroc', '🕌', '#B65A2E', 'Koutoubia_Mosque'], ['Londres', 'Royaume-Uni', '🎡', '#335C81', 'Big_Ben'], ['Amsterdam', 'Pays-Bas', '🚲', '#D9622B', 'Rijksmuseum'], ['Istanbul', 'Turquie', '', '#2E6FA8', 'Hagia_Sophia'],
   ['New York', 'États-Unis', '🗽', '#3D5A80', 'Statue_of_Liberty'], ['Tokyo', 'Japon', '🗾', '#C2185B', 'Tokyo_Tower'], ['Dubaï', 'Émirats arabes unis', '🏙️', '#A67C00', 'Burj_Khalifa'], ['Bali', 'Indonésie', '🌺', '#2E8B57', 'Tanah_Lot']
 ];
 /* Photo du monument : image principale de l'article Wikipédia, gardée en mémoire sur le téléphone. */
@@ -276,7 +276,7 @@ function vHome(results) {
   </section>
   <div id="sres"></div>
   <h2>Destinations populaires</h2>
-  <div class="grid">${POP.map(([c, p, e, col, w]) => `<button class="dest" data-q="${esc(c + ', ' + p)}" data-img="${esc(w)}" style="background:${col}"><i>${e}</i><span>${esc(c)}</span><small>${esc(p)}</small></button>`).join('')}</div>
+  <div class="grid">${POP.map(([c, p, e, col, w]) => `<button class="dest" data-q="${esc(c + ', ' + p)}" data-img="${esc(w)}" style="background:${col}">${e ? `<i>${e}</i>` : ''}<span>${esc(c)}</span><small>${esc(p)}</small></button>`).join('')}</div>
   <div class="info" style="margin-top:16px">✈️ <b>Comment ça marche ?</b><br>1. Choisis une destination · 2. Choisis ton hôtel · 3. Découvre les activités, les restos et les transports autour de lui · 4. Garde tes coups de cœur dans <b>Mon voyage</b>.</div>
   <footer>Données © contributeurs OpenStreetMap. Photos : Wikipédia / Wikimedia Commons. Vérifie toujours les horaires et les prix sur le site officiel.</footer>`;
   loadPhotos();
