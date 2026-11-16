@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Onygo · Ton voyage du début à la fin</title>
 <meta name="description" content="Onygo : choisis ta destination, ton hôtel, puis découvre tout ce qu'il y a autour : activités, restaurants et moyens de transport.">
-<meta name="theme-color" content="#0B7A75">
+<meta name="theme-color" content="#4FA9E8">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,9 +13,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
+<div class="sky" aria-hidden="true">
+  <div class="sun"></div>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="cloud c4"></div><div class="cloud c5"></div>
+</div>
 <header class="top">
   <a class="logo" href="#explorer" aria-label="Onygo, accueil">
     <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#0B7A75"/><path d="M8 19c4-1 7-4 9-8l3 1-2 4 5 1 1-2 2 1-2 5c-6 2-12 2-16 0z" fill="#FFF7EC"/><circle cx="23" cy="9" r="2.4" fill="#FF6B5A"/></svg>
@@ -38,6 +42,6 @@
 <div id="toast" class="toast" role="status"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

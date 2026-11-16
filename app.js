@@ -240,10 +240,29 @@ function bindFav(list, kind) {
 
 /* ================= EXPLORER : destination + hôtels ================= */
 const POP = [
-  ['Paris', 'France', '🗼', '#0B7A75'], ['Rome', 'Italie', '🏛️', '#E07A3F'], ['Barcelone', 'Espagne', '🌞', '#E9A300'], ['Lisbonne', 'Portugal', '🚋', '#C9504A'],
-  ['Marrakech', 'Maroc', '🕌', '#B65A2E'], ['Londres', 'Royaume-Uni', '🎡', '#335C81'], ['Amsterdam', 'Pays-Bas', '🚲', '#D9622B'], ['Istanbul', 'Turquie', '🧿', '#2E6FA8'],
-  ['New York', 'États-Unis', '🗽', '#3D5A80'], ['Tokyo', 'Japon', '🗾', '#C2185B'], ['Dubaï', 'Émirats arabes unis', '🏙️', '#A67C00'], ['Bali', 'Indonésie', '🌺', '#2E8B57']
+  ['Paris', 'France', '🗼', '#0B7A75', 'Eiffel_Tower'], ['Rome', 'Italie', '🏛️', '#E07A3F', 'Colosseum'], ['Barcelone', 'Espagne', '🌞', '#E9A300', 'Sagrada_Família'], ['Lisbonne', 'Portugal', '🚋', '#C9504A', 'Belém_Tower'],
+  ['Marrakech', 'Maroc', '🕌', '#B65A2E', 'Koutoubia_Mosque'], ['Londres', 'Royaume-Uni', '🎡', '#335C81', 'Big_Ben'], ['Amsterdam', 'Pays-Bas', '🚲', '#D9622B', 'Rijksmuseum'], ['Istanbul', 'Turquie', '🧿', '#2E6FA8', 'Hagia_Sophia'],
+  ['New York', 'États-Unis', '🗽', '#3D5A80', 'Statue_of_Liberty'], ['Tokyo', 'Japon', '🗾', '#C2185B', 'Tokyo_Tower'], ['Dubaï', 'Émirats arabes unis', '🏙️', '#A67C00', 'Burj_Khalifa'], ['Bali', 'Indonésie', '🌺', '#2E8B57', 'Tanah_Lot']
 ];
+/* Photo du monument : image principale de l'article Wikipédia, gardée en mémoire sur le téléphone. */
+async function monumentPhoto(title) {
+  const k = 'img-' + title, have = store.get(k, null);
+  if (have) return have;
+  const r = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title));
+  if (!r.ok) throw new Error('wiki');
+  const j = await r.json(), src = j.thumbnail && j.thumbnail.source;
+  if (src) store.set(k, src);
+  return src;
+}
+function loadPhotos() {
+  $$('[data-img]').forEach(b => {
+    monumentPhoto(b.dataset.img).then(src => {
+      if (!src) return;
+      const im = new Image(); im.alt = ''; im.decoding = 'async';
+      im.onload = () => im.classList.add('ok'); im.src = src; b.prepend(im);
+    }).catch(() => {});
+  });
+}
 function vExplorer() {
   if (!S.dest) return vHome();
   vHotels();
@@ -257,9 +276,10 @@ function vHome(results) {
   </section>
   <div id="sres"></div>
   <h2>Destinations populaires</h2>
-  <div class="grid">${POP.map(([c, p, e, col]) => `<button class="dest" data-q="${esc(c + ', ' + p)}" style="background:${col}"><i>${e}</i>${esc(c)}<small>${esc(p)}</small></button>`).join('')}</div>
+  <div class="grid">${POP.map(([c, p, e, col, w]) => `<button class="dest" data-q="${esc(c + ', ' + p)}" data-img="${esc(w)}" style="background:${col}"><i>${e}</i><span>${esc(c)}</span><small>${esc(p)}</small></button>`).join('')}</div>
   <div class="info" style="margin-top:16px">✈️ <b>Comment ça marche ?</b><br>1. Choisis une destination · 2. Choisis ton hôtel · 3. Découvre les activités, les restos et les transports autour de lui · 4. Garde tes coups de cœur dans <b>Mon voyage</b>.</div>
-  <footer>Données © contributeurs OpenStreetMap. Vérifie toujours les horaires et les prix sur le site officiel.</footer>`;
+  <footer>Données © contributeurs OpenStreetMap. Photos : Wikipédia / Wikimedia Commons. Vérifie toujours les horaires et les prix sur le site officiel.</footer>`;
+  loadPhotos();
   $('#sform').onsubmit = e => { e.preventDefault(); const q = $('#sq').value.trim(); if (q.length > 1) search(q); };
   $$('[data-q]').forEach(b => b.onclick = () => search(b.dataset.q, true));
   if (results) showResults(results);
