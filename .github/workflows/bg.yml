@@ -1,0 +1,26 @@
+name: Photos de fond (candidates)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/bg.yml']
+permissions:
+  contents: write
+jobs:
+  get:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p tmp-bg
+          for t in Cumulus_cloud Meadow Val_d%27Orcia Tuscany Lake_Bled Lavender Seychelles Bora_Bora Alps Countryside Grassland Santorini; do
+            j=$(curl -s -A "onygo-bg (github.com/melanie01630/onygo)" "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail|name&pithumbsize=1600&redirects=1&titles=$t")
+            u=$(echo "$j" | jq -r '.query.pages[]|.thumbnail.source // empty')
+            n=$(echo "$j" | jq -r '.query.pages[]|.pageimage // empty')
+            echo "$t|$n|$u" >> tmp-bg/list.txt
+            [ -n "$u" ] && curl -s -L -A "onygo-bg" -o "tmp-bg/$t.jpg" "$u"
+            sleep 1
+          done
+          ls -la tmp-bg; cat tmp-bg/list.txt
+      - run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tmp-bg && git commit -m "Candidates photos de fond" && git pull --rebase origin main && git push origin HEAD:main
